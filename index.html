@@ -5,97 +5,75 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fakturační systém</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-        }
-        .invoice {
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin: 10px 0;
-        }
-        .invoice h3 {
-            margin: 0;
-        }
-        .invoice p {
-            margin: 5px 0;
-        }
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 600px; margin: auto; }
+        input, textarea, button { display: block; width: 100%; margin-bottom: 10px; padding: 8px; }
+        .factura-list { margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h1>Fakturační systém</h1>
-
-    <!-- Formulář pro registraci firmy a zadání počátečního zůstatku -->
-    <h2>Registrace firmy</h2>
-    <form id="companyForm">
-        <label for="companyName">Název firmy:</label><br>
-        <input type="text" id="companyName" required><br><br>
-        <label for="initialBalance">Počáteční zůstatek:</label><br>
-        <input type="number" id="initialBalance" required><br><br>
-        <button type="submit">Registrovat firmu</button>
-    </form>
-
-    <div id="companyInfo"></div>
-
-    <!-- Sekce pro zobrazení faktur a součtů -->
-    <h2>Faktury</h2>
-    <button onclick="showInvoices()">Zobrazit faktury</button>
-    <div id="invoiceList"></div>
+    <div class="container">
+        <h2>Registrace firmy</h2>
+        <input type="text" id="companyName" placeholder="Název firmy">
+        <input type="number" id="startingBalance" placeholder="Počáteční rozpočet">
+        <button onclick="registerCompany()">Registrovat</button>
+        
+        <h2>Vytvoření faktury</h2>
+        <textarea id="facturaTemplate" placeholder="Zde napište šablonu faktury..."></textarea>
+        <button onclick="saveTemplate()">Uložit šablonu</button>
+        
+        <h2>Přidání faktury</h2>
+        <input type="text" id="productName" placeholder="Název produktu">
+        <input type="number" id="productAmount" placeholder="Počet kusů">
+        <input type="number" id="productPrice" placeholder="Cena za kus">
+        <button onclick="addInvoice()">Přidat fakturu</button>
+        
+        <h2>Faktury</h2>
+        <div class="factura-list" id="invoiceList"></div>
+    </div>
 
     <script>
-        let company = {
-            name: '',
-            balance: 0,
-            invoices: [],
-        };
+        function registerCompany() {
+            let name = document.getElementById('companyName').value;
+            let balance = document.getElementById('startingBalance').value;
+            localStorage.setItem('companyName', name);
+            localStorage.setItem('companyBalance', balance);
+            alert('Firma registrována!');
+        }
 
-        // Funkce pro registraci firmy
-        document.getElementById('companyForm').addEventListener('submit', function(event) {
-            event.preventDefault();
-            company.name = document.getElementById('companyName').value;
-            company.balance = parseFloat(document.getElementById('initialBalance').value);
-            localStorage.setItem('company', JSON.stringify(company)); // Uložení do LocalStorage
+        function saveTemplate() {
+            let template = document.getElementById('facturaTemplate').value;
+            localStorage.setItem('facturaTemplate', template);
+            alert('Šablona uložena!');
+        }
 
-            // Zobrazení informací o firmě
-            document.getElementById('companyInfo').innerHTML = `
-                <p>Firma: ${company.name}</p>
-                <p>Počáteční zůstatek: ${company.balance} Kč</p>
-            `;
-        });
+        function addInvoice() {
+            let name = document.getElementById('productName').value;
+            let amount = parseInt(document.getElementById('productAmount').value);
+            let price = parseInt(document.getElementById('productPrice').value);
+            let total = amount * price;
+            
+            let invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
+            invoices.push({ name, amount, price, total });
+            localStorage.setItem('invoices', JSON.stringify(invoices));
+            
+            let balance = parseInt(localStorage.getItem('companyBalance') || '0');
+            balance += total;
+            localStorage.setItem('companyBalance', balance);
+            
+            displayInvoices();
+        }
 
-        // Funkce pro zobrazení faktur
-        function showInvoices() {
-            let invoiceList = document.getElementById('invoiceList');
-            invoiceList.innerHTML = ''; // Vyprázdnění seznamu
-            company.invoices.forEach(invoice => {
-                let invoiceDiv = document.createElement('div');
-                invoiceDiv.classList.add('invoice');
-                invoiceDiv.innerHTML = `
-                    <h3>Faktura #${invoice.id}</h3>
-                    <p>Prodáno: ${invoice.quantity} ks</p>
-                    <p>Výdělek: ${invoice.revenue} Kč</p>
-                    <p>Datum: ${invoice.date}</p>
-                `;
-                invoiceList.appendChild(invoiceDiv);
+        function displayInvoices() {
+            let invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
+            let list = document.getElementById('invoiceList');
+            list.innerHTML = '';
+            invoices.forEach((inv, index) => {
+                list.innerHTML += `<p>${index + 1}. ${inv.name} - ${inv.amount} ks - ${inv.total} Kč</p>`;
             });
         }
 
-        // Funkce pro přidání faktury (můžete přidat více funkcí dle potřeby)
-        function addInvoice(quantity, revenue) {
-            const invoice = {
-                id: company.invoices.length + 1,
-                quantity: quantity,
-                revenue: revenue,
-                date: new Date().toLocaleDateString(),
-            };
-            company.invoices.push(invoice);
-            company.balance += revenue; // Aktualizace zůstatku
-            localStorage.setItem('company', JSON.stringify(company)); // Uložení do LocalStorage
-            showInvoices();
-        }
-
-        // Příklad přidání faktury
-        addInvoice(10, 5000); // Přidání příkladu faktury
+        window.onload = displayInvoices;
     </script>
 </body>
 </html>
