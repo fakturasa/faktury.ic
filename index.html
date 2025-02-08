@@ -15,10 +15,15 @@
     <div class="container">
         <h2>Registrace firmy</h2>
         <input type="text" id="companyName" placeholder="Název firmy">
-        <input type="number" id="startingBalance" placeholder="Počáteční rozpočet">
+        <input type="password" id="companyCode" placeholder="Čtyřmístný kód">
         <button onclick="registerCompany()">Registrovat</button>
         
-        <h2>Vytvoření faktury</h2>
+        <h2>Přihlášení</h2>
+        <input type="text" id="loginCompanyName" placeholder="Název firmy">
+        <input type="password" id="loginCompanyCode" placeholder="Čtyřmístný kód">
+        <button onclick="loginCompany()">Přihlásit</button>
+        
+        <h2>Správce faktur</h2>
         <textarea id="facturaTemplate" placeholder="Zde napište šablonu faktury..."></textarea>
         <button onclick="saveTemplate()">Uložit šablonu</button>
         
@@ -33,47 +38,89 @@
     </div>
 
     <script>
+        const SHEET_API_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec";
+        let currentCompany = null;
+        
         function registerCompany() {
             let name = document.getElementById('companyName').value;
-            let balance = document.getElementById('startingBalance').value;
-            localStorage.setItem('companyName', name);
-            localStorage.setItem('companyBalance', balance);
-            alert('Firma registrována!');
+            let code = document.getElementById('companyCode').value;
+            
+            fetch(SHEET_API_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "registerCompany", name, code }),
+                headers: { "Content-Type": "application/json" }
+            }).then(response => response.json())
+              .then(data => alert(data.message));
+        }
+
+        function loginCompany() {
+            let name = document.getElementById('loginCompanyName').value;
+            let code = document.getElementById('loginCompanyCode').value;
+            
+            fetch(SHEET_API_URL + `?action=loginCompany&name=${name}&code=${code}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentCompany = name;
+                        alert("Přihlášení úspěšné");
+                        displayInvoices();
+                    } else {
+                        alert("Neplatné přihlašovací údaje");
+                    }
+                });
         }
 
         function saveTemplate() {
+            if (!currentCompany) {
+                alert("Nejprve se přihlaste");
+                return;
+            }
             let template = document.getElementById('facturaTemplate').value;
-            localStorage.setItem('facturaTemplate', template);
-            alert('Šablona uložena!');
+            
+            fetch(SHEET_API_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "saveTemplate", company: currentCompany, template }),
+                headers: { "Content-Type": "application/json" }
+            }).then(response => response.json())
+              .then(data => alert(data.message));
         }
 
         function addInvoice() {
+            if (!currentCompany) {
+                alert("Nejprve se přihlaste");
+                return;
+            }
             let name = document.getElementById('productName').value;
             let amount = parseInt(document.getElementById('productAmount').value);
             let price = parseInt(document.getElementById('productPrice').value);
             let total = amount * price;
             
-            let invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
-            invoices.push({ name, amount, price, total });
-            localStorage.setItem('invoices', JSON.stringify(invoices));
-            
-            let balance = parseInt(localStorage.getItem('companyBalance') || '0');
-            balance += total;
-            localStorage.setItem('companyBalance', balance);
-            
-            displayInvoices();
+            fetch(SHEET_API_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "addInvoice", company: currentCompany, name, amount, price, total }),
+                headers: { "Content-Type": "application/json" }
+            }).then(response => response.json())
+              .then(data => {
+                  alert(data.message);
+                  displayInvoices();
+              });
         }
 
         function displayInvoices() {
-            let invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
-            let list = document.getElementById('invoiceList');
-            list.innerHTML = '';
-            invoices.forEach((inv, index) => {
-                list.innerHTML += `<p>${index + 1}. ${inv.name} - ${inv.amount} ks - ${inv.total} Kč</p>`;
-            });
+            if (!currentCompany) {
+                alert("Nejprve se přihlaste");
+                return;
+            }
+            fetch(SHEET_API_URL + `?action=getInvoices&company=${currentCompany}`)
+                .then(response => response.json())
+                .then(data => {
+                    let list = document.getElementById('invoiceList');
+                    list.innerHTML = '';
+                    data.forEach((inv, index) => {
+                        list.innerHTML += `<p>${index + 1}. ${inv.name} - ${inv.amount} ks - ${inv.total} Kč</p>`;
+                    });
+                });
         }
-
-        window.onload = displayInvoices;
     </script>
 </body>
 </html>
